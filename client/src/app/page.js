@@ -10,6 +10,8 @@ function Index() {
   const [isLoading, setIsLoading] = useState(false);
   const [animatedModels, setAnimatedModels] = useState([]);
   const [isAnimating, setIsAnimating] = useState(false);
+  const [allModels, setAllModels] = useState([]);
+  const [judged, setJudged] = useState(false);
 
   // Array of 50 different person emojis
   const personEmojis = [
@@ -26,6 +28,17 @@ function Index() {
       startModelAnimation();
     }
   }, [results]);
+
+  // Initialize all models on component mount
+  useEffect(() => {
+    const initialModels = Array.from({ length: 50 }, (_, index) => ({
+      id: index,
+      emoji: personEmojis[index % personEmojis.length],
+      probability: 0,
+      vote: null
+    }));
+    setAllModels(initialModels);
+  }, []);
 
   const startModelAnimation = () => {
     // Reset animation state
@@ -49,7 +62,7 @@ function Index() {
         if (index === modelsToAnimate.length - 1) {
           setTimeout(() => setIsAnimating(false), 500);
         }
-      }, index * 100); // Adjust delay as needed
+      }, 1000 + index * 100); // Longer initial delay + staggered appearance
     });
   };
   
@@ -61,6 +74,7 @@ function Index() {
         return response.json();
       })
       .then(data => {
+        setJudged(true); // Only set judged to true after we have the results
         setResults(data.result);
         setIsLoading(false);
       })
@@ -99,6 +113,19 @@ function Index() {
           z-index: 10;
           transition: transform 0.2s ease;
         }
+        
+        .pulse-animation {
+          animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        
+        @keyframes pulse {
+          0%, 100% {
+            opacity: 1;
+          }
+          50% {
+            opacity: 0.6;
+          }
+        }
       `}</style>
 
       <header className="w-full bg-black text-white py-5 px-6 shadow-md">
@@ -125,8 +152,8 @@ function Index() {
               <span className="bg-black text-white p-1 rounded-md mr-2 text-sm w-6 h-6 flex items-center justify-center">1</span>
               Person 1
             </h4>
-            <textarea
-              className="w-full bg-gray-50 text-gray-800 border border-gray-300 p-4 rounded-md mb-4 h-32 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 focus:outline-none resize-none"
+            <input
+              className="w-full bg-gray-50 text-gray-800 border border-gray-300 p-4 rounded-md mb-4 h-12 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 focus:outline-none resize-none"
               value={userResponse}
               onChange={(e) => setUserResponse(e.target.value)}
               placeholder="Enter response..."
@@ -159,8 +186,8 @@ function Index() {
               <span className="bg-black text-white p-1 rounded-md mr-2 text-sm w-6 h-6 flex items-center justify-center">2</span>
               Person 2
             </h4>
-            <textarea
-              className="w-full bg-gray-50 text-gray-800 border border-gray-300 p-4 rounded-md mb-4 h-32 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 focus:outline-none resize-none"
+            <input
+              className="w-full bg-gray-50 text-gray-800 border border-gray-300 p-4 rounded-md mb-4 h-12 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 focus:outline-none resize-none"
               value={aiResponse}
               onChange={(e) => setAiResponse(e.target.value)}
               placeholder="Enter response..."
@@ -206,6 +233,27 @@ function Index() {
               "Judge!"
             )}
           </button>
+        </div>
+        
+        {/* Bottom container for all emojis */}
+        <div className="mt-12 bg-white rounded-lg p-6 shadow-md border border-gray-200">
+          <div className="bg-gray-50 p-5 rounded-md min-h-24 flex flex-wrap gap-3 items-center justify-center">
+            {!judged && allModels.map((model) => (
+              <div 
+                key={model.id} 
+                className="emoji-item"
+              >
+                <div className={`emoji-content ${isLoading ? "pulse-animation" : ""}`}>
+                  <span className="text-xl bg-gray-100 p-1 rounded-md inline-block border border-gray-200 hover:bg-gray-50">
+                    {model.emoji}
+                  </span>
+                </div>
+              </div>
+            ))}
+            {judged && (
+              <p className="text-gray-500 text-sm italic">The citizens have decided!</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
