@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 function Index() {
-  const [prompt, setPrompt] = useState('What is the meaning of life?');
+  const [prompt, setPrompt] = useState('How do you get better at coding?');
   const [aiResponse, setAiResponse] = useState('');
   const [userResponse, setUserResponse] = useState('');
   const [results, setResults] = useState([]);
@@ -71,12 +71,12 @@ function Index() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900 p-6">
+    <div className="min-h-screen bg-gray-50 text-gray-900 p-0">
       <style jsx global>{`
         .emoji-item {
           opacity: 0;
           transform: scale(0);
-          animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
         
         @keyframes popIn {
@@ -101,23 +101,24 @@ function Index() {
         }
       `}</style>
 
-      <div className="w-full max-w-6xl mx-auto pt-6 pb-8">
-        {/* Header */}
-        <div className="mb-10 border-b border-gray-200 pb-4">
-          <div className="flex flex-col md:flex-row justify-between items-center">
-            <h1 className="text-3xl font-bold tracking-tight mb-4 md:mb-0">modelcitizens.</h1>
-            <div className="bg-gray-100 px-4 py-2 rounded-md inline-block">
-              <h3 className="text-sm font-medium text-gray-700">
-                {prompt}
-              </h3>
-            </div>
+      <header className="w-full bg-black text-white py-5 px-6 shadow-md">
+        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center">
+          <h1 className="text-3xl font-semibold tracking-tight mb-4 md:mb-0">
+            model<span className="font-light">citizens</span>
+          </h1>
+          <div className="bg-gray-800 px-5 py-3 rounded-full inline-block">
+            <h3 className="text-sm font-medium text-gray-100">
+              "{prompt}"
+            </h3>
           </div>
         </div>
-        
+      </header>
+      
+      <div className="w-full max-w-6xl mx-auto pt-6 pb-8">
         {/* Response Containers */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           {/* Person 1 Response Section */}
-          <div className="bg-white rounded-lg p-6 shadow-md border border-gray-200">
+          <div className="bg-white rounded-lg p-6 shadow-md border border-black">
             <h4 className="text-lg font-semibold mb-3 flex items-center text-gray-900">
               <span className="bg-black text-white p-1 rounded-md mr-2 text-sm w-6 h-6 flex items-center justify-center">1</span>
               Person 1
@@ -147,14 +148,11 @@ function Index() {
                     </div>
                   </div>
                 ))}
-              {results.length > 0 && animatedModels.filter(m => m.vote === 'human').length === 0 && (
-                <span className="text-gray-500 text-sm">No responses detected...</span>
-              )}
             </div>
           </div>
           
           {/* Person 2 Response Section */}
-          <div className="bg-white rounded-lg p-6 shadow-md border border-gray-200">
+          <div className="bg-white rounded-lg p-6 shadow-md border border-black">
             <h4 className="text-lg font-semibold mb-3 flex items-center text-gray-900">
               <span className="bg-black text-white p-1 rounded-md mr-2 text-sm w-6 h-6 flex items-center justify-center">2</span>
               Person 2
@@ -184,9 +182,6 @@ function Index() {
                     </div>
                   </div>
                 ))}
-              {results.length > 0 && animatedModels.filter(m => m.vote === 'ai').length === 0 && (
-                <span className="text-gray-500 text-sm">No responses detected...</span>
-              )}
             </div>
           </div>
         </div>
@@ -196,7 +191,7 @@ function Index() {
           <button
             onClick={predict}
             disabled={isLoading}
-            className="bg-black hover:bg-gray-800 text-white font-medium py-2 px-8 rounded-md text-sm shadow-sm transition-colors relative min-w-[100px]">
+            className="bg-black hover:bg-gray-800 text-white font-medium py-2 px-8 rounded-full text-sm shadow-sm transition-colors relative min-w-[100px]">
             {isLoading ? (
               <div className="flex justify-center items-center">
                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
