@@ -1,6 +1,8 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
 from model import predict_preference
+import json
+import os
 
 app = Flask(__name__)
 CORS(app)
@@ -16,6 +18,17 @@ def predict():
     print(thing)
 
     return jsonify({'result': thing})
+
+@app.route('/api/model-info', methods=['GET'])
+def get_model_info():
+    model_info_path = os.path.join('model_variations', 'model_info.json')
+    
+    if os.path.exists(model_info_path):
+        with open(model_info_path, 'r') as f:
+            model_info = json.load(f)
+        return jsonify(model_info)
+    else:
+        return jsonify({'error': 'Model information not found'}), 404
 
 if __name__ == '__main__':
     app.run(debug=True)
