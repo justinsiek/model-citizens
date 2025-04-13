@@ -17,9 +17,9 @@ class config:
     validation_size = 0.2  # Size of validation set
     n_model_variations = 50  # Number of model variations to train
     # Data sampling settings
-    min_sample_fraction = 0.3  # Minimum fraction of samples to use
+    min_sample_fraction = 0.5  # Minimum fraction of samples to use
     max_sample_fraction = 1.0  # Maximum fraction of samples to use
-    min_feature_fraction = 0.3  # Minimum fraction of features to use
+    min_feature_fraction = 0.5  # Minimum fraction of features to use
     max_feature_fraction = 1.0  # Maximum fraction of features to use
 
 # Load data from cleandata if available, otherwise process it
@@ -43,7 +43,7 @@ def process(input_str):
     return ' '.join(sentences)
 
 # Generate XGBoost model variations with different hyperparameters
-def generate_model_variations(n_variations=50, seed=42):
+def generate_model_variations(n_variations=50, seed=444):
     np.random.seed(seed)
     model_variations = []
     

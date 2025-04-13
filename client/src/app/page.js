@@ -71,7 +71,7 @@ function Index() {
       id: index,
       emoji: personEmojis[index % personEmojis.length],
       probability,
-      vote: probability >= 0.5 ? 'human' : 'ai',
+      vote: probability >= 0.54 ? 'human' : 'ai',
       modelKey: `var_${index + 1}` // Map to the model info keys
     }));
     
@@ -163,7 +163,7 @@ function Index() {
                    <div className="mt-4 border-t pt-4">
                       <p className="font-medium">This citizen {model.vote === 'human' ? 'voted for Person 1' : 'voted for Person 2'}</p>
                       <p className="text-sm text-gray-500">
-                        Probability score: {(Math.abs(model.probability - 0.5) * 200).toFixed(2)}%
+                        Probability score: {(Math.abs(model.probability - 0.50) * 100 + 50).toFixed(2)}%
                       </p>
                     </div>
                 )}
@@ -193,7 +193,7 @@ function Index() {
             
             <div className="mt-4">
               {/* Stats Grid */}
-              <div className="grid grid-cols-4 gap-4 mb-4">
+              <div className="grid grid-cols-2 gap-4 mb-4">
                 <div className="bg-gray-50 p-3 rounded-md">
                   <p className="text-sm text-gray-500">Data Sampled</p>
                   <p className="text-lg font-medium">{info.sample_percentage.toFixed(1)}%</p>
@@ -201,14 +201,6 @@ function Index() {
                 <div className="bg-gray-50 p-3 rounded-md">
                   <p className="text-sm text-gray-500">Features Used</p>
                   <p className="text-lg font-medium">{info.feature_percentage.toFixed(1)}%</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <p className="text-sm text-gray-500">Validation Accuracy</p>
-                  <p className="text-lg font-medium">{(info.validation_accuracy * 100).toFixed(2)}%</p>
-                </div>
-                <div className="bg-gray-50 p-3 rounded-md">
-                  <p className="text-sm text-gray-500">Log Loss</p>
-                  <p className="text-lg font-medium">{info.validation_log_loss.toFixed(4)}</p>
                 </div>
               </div>
               
@@ -233,7 +225,7 @@ function Index() {
                     <div className="mt-6 border-t pt-4">
                       <p className="font-medium">This citizen {model.vote === 'human' ? 'voted for Person 1' : 'voted for Person 2'}</p>
                       <p className="text-sm text-gray-500">
-                        Probability score: {(Math.abs(model.probability - 0.5) * 200).toFixed(2)}%
+                        Probability score: {(Math.abs(model.probability - 0.50) * 100 + 50).toFixed(2)}%
                       </p>
                     </div>
                   )}
@@ -348,9 +340,6 @@ function Index() {
                       <span className="text-xl bg-gray-100 p-1 rounded-md inline-block border border-gray-200 hover:bg-orange-50">
                         {model.emoji}
                       </span>
-                      <div className="absolute -top-10 left-0 bg-black text-white p-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity text-xs whitespace-nowrap">
-                        Score: {model.probability.toFixed(2)}
-                      </div>
                     </div>
                   </div>
                 ))}
@@ -383,9 +372,6 @@ function Index() {
                       <span className="text-xl bg-gray-100 p-1 rounded-md inline-block border border-gray-200 hover:bg-blue-50">
                         {model.emoji}
                       </span>
-                      <div className="absolute -top-10 left-0 bg-black text-white p-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity text-xs whitespace-nowrap">
-                        Score: {model.probability.toFixed(2)}
-                      </div>
                     </div>
                   </div>
                 ))}
