@@ -16,7 +16,6 @@ from sklearn.metrics import log_loss
 class config:
     seed = 42
     n_splits = 10
-    sample_size = 2000  # Limit data size for faster processing
 
 # Load data from cleandata if available, otherwise process it
 def load_data():
@@ -145,15 +144,12 @@ def main():
     if test is not None:
         test_preds = np.zeros(shape=(X_test.shape[0], y.nunique()))
     cv_scores = list()
+    accuracy_scores = list()  # To track accuracy across folds
     
     # Get unique classes for proper model setup
     unique_classes = np.unique(y)
     num_classes = len(unique_classes)
     print(f"Number of unique classes in data: {num_classes} {unique_classes}")
-    
-    # Feature importance tracking
-    features = X.columns.tolist()
-    feat_imp_df = pd.DataFrame({"feature": features})
     
     # Train models with cross-validation
     for idx, (train_idx, val_idx) in enumerate(cv.split(X, y)):
@@ -187,25 +183,21 @@ def main():
         
         # Evaluate model
         val_preds = model.predict_proba(X_val)
+        val_pred_labels = np.argmax(val_preds, axis=1)
+        val_accuracy = np.mean(val_pred_labels == y_val)
         val_log_loss_score = log_loss(y_val, val_preds, labels=unique_classes)
+        
         print(f"Val log loss: {val_log_loss_score:.5f}")
+        print(f"Val accuracy: {val_accuracy:.5f} ({np.sum(val_pred_labels == y_val)}/{len(y_val)})")
+        
         cv_scores.append(val_log_loss_score)
+        accuracy_scores.append(val_accuracy)
         
         # Predict on test data
         if test is not None:
             test_preds += model.predict_proba(X_test) / cv.get_n_splits()
         
-        # Track feature importance
-        feat_imp_df = feat_imp_df.merge(
-            pd.DataFrame({
-                "feature": features,
-                f"fold_{idx+1}_feat_imp": model.feature_importances_,
-            }),
-            on=["feature"],
-            how="left",
-        )
-        
-        # Save model (optional)
+        # Save model
         model.save_model(f"xgb_model_fold_{idx+1}.json")
         
         # Clean up to free memory
@@ -214,22 +206,8 @@ def main():
     
     # Print cross-validation result
     print("="*90)
-    print(f"CV: {np.mean(cv_scores):.5f}")
-    
-    # Create feature importance visualization
-    feat_imp_df["avg_importance"] = feat_imp_df.iloc[:, 1:].mean(axis=1)
-    plt.figure(figsize=(12, 10))
-    sns.barplot(
-        data=feat_imp_df.sort_values(by="avg_importance", ascending=False).iloc[:50],
-        x="avg_importance",
-        y="feature",
-        color="royalblue",
-        width=0.75,
-    )
-    plt.title("Average Feature Importances of All Folds", size=12)
-    plt.tight_layout()
-    plt.savefig("feature_importance.png")
-    print("Feature importance plot saved as feature_importance.png")
+    print(f"CV Log Loss: {np.mean(cv_scores):.5f}")
+    print(f"CV Accuracy: {np.mean(accuracy_scores):.5f} (Average across all folds)")
     
     # Save predictions to submission file
     if test is not None and sample_submission is not None:

@@ -12,8 +12,11 @@ from sklearn.metrics.pairwise import cosine_similarity
 # Download required NLTK resources
 try:
     nltk.data.find('tokenizers/punkt')
+    nltk.data.find('tokenizers/punkt_tab')
 except LookupError:
+    print("Downloading required NLTK resources...")
     nltk.download('punkt')
+    nltk.download('punkt_tab')
 
 class Config:
     seed = 42
