@@ -14,7 +14,7 @@ from sklearn.metrics import log_loss
 
 # Configuration
 class config:
-    seed = 42
+    seed = 69
     n_splits = 10
 
 # Load data from cleandata if available, otherwise process it
@@ -151,6 +151,11 @@ def main():
     num_classes = len(unique_classes)
     print(f"Number of unique classes in data: {num_classes} {unique_classes}")
     
+    # Ensure we're only doing binary classification
+    if num_classes != 2:
+        print("Warning: This model is designed for binary classification (model A wins vs model B wins)")
+        print("The data should only contain wins (0) and losses (1), with no ties")
+    
     # Train models with cross-validation
     for idx, (train_idx, val_idx) in enumerate(cv.split(X, y)):
         print(f"| Fold {idx+1} |".center(90, "="))
@@ -160,15 +165,16 @@ def main():
         print(f'Train: {X_train.shape}')
         print(f'Val: {X_val.shape}')
         
-        # Initialize model
+        # Initialize model for binary classification
         model = xgb.XGBClassifier(
-            objective='multi:softprob',
-            num_class=num_classes,  # Use actual number of classes in the data
-            eval_metric='mlogloss',
+            objective='binary:logistic',  # Changed to binary classification
+            eval_metric='logloss',
             subsample=0.8,
-            n_estimators=650,
-            learning_rate=0.045,
-            max_depth=5,
+            n_estimators=1000,  # Increased for better performance
+            learning_rate=0.03,  # Reduced for better generalization
+            max_depth=6,         # Slightly increased
+            colsample_bytree=0.8, # Added for better feature selection
+            min_child_weight=3,   # Added to prevent overfitting
             random_state=config.seed,
             early_stopping_rounds=75
         )
@@ -220,7 +226,8 @@ def main():
 
 def predict_preference(prompt, response_a, response_b):
     """
-    Make a prediction for a single example using the trained model
+    Make a prediction for a single example using the trained model.
+    Returns probability of preferring model A or model B (binary).
     """
     # Load the model from fold 1 (could average multiple folds)
     model = xgb.XGBClassifier()
@@ -251,13 +258,12 @@ def predict_preference(prompt, response_a, response_b):
     X = processed_data.drop(columns=drop_cols, axis=1)
     X = X.replace([np.inf, -np.inf], np.nan).fillna(0)
     
-    # Make prediction
+    # Make prediction - binary classification (model A vs model B)
     probabilities = model.predict_proba(X)[0]
     
     return {
-        "prefer_a_probability": probabilities[0],
-        "prefer_b_probability": probabilities[1],
-        "tie_probability": probabilities[2]
+        "prefer_a_probability": 1 - probabilities[1],  # Probability of model A winning
+        "prefer_b_probability": probabilities[1]       # Probability of model B winning
     }
 
 if __name__ == "__main__":

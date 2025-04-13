@@ -21,7 +21,7 @@ except LookupError:
 class Config:
     seed = 42
     n_splits = 10
-    sample_size = 2000  # Limit data size for faster processing
+    sample_size = 5000  # Limit data size for faster processing
 
 def process(input_str):
     # Clean JSON-like strings
@@ -167,18 +167,25 @@ def prepare_data():
     # Keep only relevant columns and filter out ties
     filtered_df = train_df[train_df['winner_tie'] == 0][['prompt', 'response_a', 'response_b', 'winner_model_b']]
     
-    # Sample a smaller dataset for faster processing
-    if len(filtered_df) > Config.sample_size:
+    # Sample a smaller dataset for faster processing if sample_size is set
+    original_size = len(filtered_df)
+    if Config.sample_size is not None and original_size > Config.sample_size:
         filtered_df = filtered_df.sample(Config.sample_size, random_state=Config.seed)
-        print(f"Sampled {Config.sample_size} examples for faster training")
+        print(f"Sampled {Config.sample_size} examples from {original_size} (no ties)")
+    else:
+        print(f"Using full dataset with {len(filtered_df)} examples (no ties)")
+    
+    # Check we have both binary classes
+    class_counts = filtered_df['winner_model_b'].value_counts()
+    print(f"Class distribution: model A wins: {class_counts.get(0, 0)}, model B wins: {class_counts.get(1, 0)}")
     
     # Apply text processing
     filtered_df["prompt"] = filtered_df["prompt"].apply(process)
     filtered_df["response_a"] = filtered_df["response_a"].apply(process)
     filtered_df["response_b"] = filtered_df["response_b"].apply(process)
     
-    # Add target column
-    filtered_df["target"] = np.where(filtered_df["winner_model_b"] == 1, 1, 0)
+    # Add target column (binary: 0 for model A wins, 1 for model B wins)
+    filtered_df["target"] = filtered_df["winner_model_b"]
     
     # Extract features
     preprocessor = Preprocessor()
