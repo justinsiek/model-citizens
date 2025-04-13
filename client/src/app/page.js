@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 function Index() {
-  const [prompt, setPrompt] = useState('How do you get better at coding?');
+  const [prompt, setPrompt] = useState('What is the meaning of life?');
   const [aiResponse, setAiResponse] = useState('');
   const [userResponse, setUserResponse] = useState('');
   const [results, setResults] = useState([]);
@@ -102,29 +102,31 @@ function Index() {
       `}</style>
 
       <header className="w-full bg-black text-white py-5 px-6 shadow-md">
-        <div className="max-w-6xl mx-auto flex flex-col md:flex-row justify-between items-center">
+        <div className="max-w-screen-2xl mx-auto flex flex-col md:flex-row justify-between items-center">
           <h1 className="text-3xl font-semibold tracking-tight mb-4 md:mb-0">
             model<span className="font-light">citizens</span>
           </h1>
-          <div className="bg-gray-800 px-5 py-3 rounded-full inline-block">
+          <div className="bg-gray-800 px-5 py-3 rounded-full inline-block order-last md:order-none">
             <h3 className="text-sm font-medium text-gray-100">
               "{prompt}"
             </h3>
           </div>
+          {/* Empty div for flex layout balance */}
+          <div className="hidden md:block w-[180px]"></div>
         </div>
       </header>
       
-      <div className="w-full max-w-6xl mx-auto pt-6 pb-8">
+      <div className="w-full max-w-screen-2xl mx-auto pt-6 px-4 pb-8">
         {/* Response Containers */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
           {/* Person 1 Response Section */}
-          <div className="bg-white rounded-lg p-6 shadow-md border border-black">
+          <div className="bg-white rounded-lg p-6 shadow-md border border-gray-200">
             <h4 className="text-lg font-semibold mb-3 flex items-center text-gray-900">
               <span className="bg-black text-white p-1 rounded-md mr-2 text-sm w-6 h-6 flex items-center justify-center">1</span>
               Person 1
             </h4>
             <textarea
-              className="w-full bg-gray-50 text-gray-800 border border-gray-300 p-4 rounded-md mb-4 h-48 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 focus:outline-none resize-none"
+              className="w-full bg-gray-50 text-gray-800 border border-gray-300 p-4 rounded-md mb-4 h-32 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 focus:outline-none resize-none"
               value={userResponse}
               onChange={(e) => setUserResponse(e.target.value)}
               placeholder="Enter response..."
@@ -152,13 +154,13 @@ function Index() {
           </div>
           
           {/* Person 2 Response Section */}
-          <div className="bg-white rounded-lg p-6 shadow-md border border-black">
+          <div className="bg-white rounded-lg p-6 shadow-md border border-gray-200">
             <h4 className="text-lg font-semibold mb-3 flex items-center text-gray-900">
               <span className="bg-black text-white p-1 rounded-md mr-2 text-sm w-6 h-6 flex items-center justify-center">2</span>
               Person 2
             </h4>
             <textarea
-              className="w-full bg-gray-50 text-gray-800 border border-gray-300 p-4 rounded-md mb-4 h-48 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 focus:outline-none resize-none"
+              className="w-full bg-gray-50 text-gray-800 border border-gray-300 p-4 rounded-md mb-4 h-32 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 focus:outline-none resize-none"
               value={aiResponse}
               onChange={(e) => setAiResponse(e.target.value)}
               placeholder="Enter response..."
@@ -191,7 +193,7 @@ function Index() {
           <button
             onClick={predict}
             disabled={isLoading}
-            className="bg-black hover:bg-gray-800 text-white font-medium py-2 px-8 rounded-full text-sm shadow-sm transition-colors relative min-w-[100px]">
+            className="bg-black hover:bg-gray-800 text-white font-medium py-2 px-8 rounded-full text-md shadow-sm transition-colors relative min-w-[100px]">
             {isLoading ? (
               <div className="flex justify-center items-center">
                 <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
