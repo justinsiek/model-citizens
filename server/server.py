@@ -15,7 +15,7 @@ def predict():
     thing = predict_preference(prompt, user_response, ai_response)
     print(thing)
 
-    return jsonify({'result': 'result'})
+    return jsonify({'result': thing})
 
 if __name__ == '__main__':
     app.run(debug=True)

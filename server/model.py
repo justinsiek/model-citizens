@@ -347,7 +347,7 @@ def main():
 def predict_preference(prompt, response_a, response_b):
     """
     Make predictions for a single example using all trained model variations.
-    Returns probability arrays for each model.
+    Returns an array of prefer_a_probability values.
     """
     # Process inputs
     processed_prompt = process(prompt)
@@ -373,7 +373,7 @@ def predict_preference(prompt, response_a, response_b):
     X = X.replace([np.inf, -np.inf], np.nan).fillna(0)
     
     # Load all model variations and make predictions
-    model_probs = []
+    prefer_a_probabilities = []
     
     for model_idx in range(1, config.n_model_variations + 1):
         model_key = f"var_{model_idx}"
@@ -402,15 +402,10 @@ def predict_preference(prompt, response_a, response_b):
             # Predict probabilities using only the features this model was trained on
             probs = model.predict_proba(X[available_features])[0]
             
-            model_probs.append({
-                "model_variation": model_idx,
-                "features_used": len(available_features),
-                "features_missing": len(missing_features),
-                "prefer_a_probability": 1 - probs[1],  # Probability of model A winning
-                "prefer_b_probability": probs[1]       # Probability of model B winning
-            })
+            # Get probability of model A being preferred (converting from numpy float to Python float)
+            prefer_a_probabilities.append(float(1 - probs[1]))
     
-    return model_probs
+    return prefer_a_probabilities
 
 if __name__ == "__main__":
     main()
