@@ -8,8 +8,11 @@ from nltk.util import ngrams
 from collections import Counter
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
+from sentence_transformers import SentenceTransformer
+import torch
+from tqdm.auto import tqdm
 
-# Download required NLTK resources
+
 try:
     nltk.data.find('tokenizers/punkt')
     nltk.data.find('tokenizers/punkt_tab')
@@ -21,10 +24,9 @@ except LookupError:
 class Config:
     seed = 42
     n_splits = 10
-    sample_size = 5000  # Limit data size for faster processing
+    sample_size = None  
 
 def process(input_str):
-    # Clean JSON-like strings
     if isinstance(input_str, str):
         stripped_str = input_str.strip('[]')
         sentences = [s.strip('"') for s in stripped_str.split('","')]
@@ -32,6 +34,11 @@ def process(input_str):
     return input_str
 
 class Preprocessor:
+    def __init__(self, sbert_model_name='all-MiniLM-L6-v2'):
+        print(f"Loading SBERT model: {sbert_model_name}...")
+        self.sbert_model = SentenceTransformer(sbert_model_name)
+        print("SBERT model loaded.")
+
     def cosine_sim(self, text1: str, text2: str):
         try:
             vectorizer = TfidfVectorizer(ngram_range=(1, 3))
@@ -50,7 +57,7 @@ class Preprocessor:
         return len(intersection) / len(union) if len(union) > 0 else 0
     
     def count_new_lines(self, text: str) -> int:
-        return text.count('\\n') 
+        return text.count('\\n')
     
     def count_quotes(self, text: str) -> int:
         single_quote_pattern = r"'(.*?)'"
@@ -78,6 +85,23 @@ class Preprocessor:
         except:
             return 0
         
+    def sbert_sim(self, text1: str, text2: str):
+        """Calculates cosine similarity between SBERT embeddings."""
+        try:
+            embeddings = self.sbert_model.encode([text1, text2], convert_to_tensor=True)
+            # Calculate cosine similarity (using PyTorch's cosine_similarity)
+            # Note: The sentence_transformers library includes utility functions for this,
+            # but using the core formula directly avoids extra imports if needed elsewhere.
+            # Ensure embeddings are on CPU for numpy conversion if needed,
+            # or use torch functions directly.
+            emb1 = embeddings[0].unsqueeze(0) # Add batch dimension
+            emb2 = embeddings[1].unsqueeze(0) # Add batch dimension
+            cos_sim = torch.nn.functional.cosine_similarity(emb1, emb2).item()
+            return cos_sim
+        except Exception as e:
+            print(f"Error calculating SBERT similarity: {e}")
+            return np.nan
+
     def run(self, data: pd.DataFrame) -> pd.DataFrame:
         print("Extracting features...")
         
@@ -157,6 +181,21 @@ class Preprocessor:
         data["jaccard_sim_ratio"] = data.apply(
             lambda x: x["respb_prompt_jaccard_sim"] / x["respa_prompt_jaccard_sim"] 
             if x["respa_prompt_jaccard_sim"] > 0 else 0, axis=1)
+        
+        print("Computing SBERT similarity features...")
+        tqdm.pandas(desc="SBERT Similarities")
+        
+        # Calculate SBERT similarities with progress bars
+        data["respa_respb_sbert_sim"] = data.progress_apply(lambda x: self.sbert_sim(x["response_a"], x["response_b"]), axis=1)
+        data["respa_prompt_sbert_sim"] = data.progress_apply(lambda x: self.sbert_sim(x["response_a"], x["prompt"]), axis=1)
+        data["respb_prompt_sbert_sim"] = data.progress_apply(lambda x: self.sbert_sim(x["response_b"], x["prompt"]), axis=1)
+
+        # Derived SBERT features (optional, but might be useful)
+        data["sbert_sim_diff"] = data["respa_prompt_sbert_sim"] - data["respb_prompt_sbert_sim"]
+        data["sbert_sim_ratio"] = data.apply(
+            lambda x: x["respb_prompt_sbert_sim"] / x["respa_prompt_sbert_sim"]
+            if x["respa_prompt_sbert_sim"] != 0 else np.nan, axis=1 # Avoid division by zero, use nan
+        )
         
         return data
 

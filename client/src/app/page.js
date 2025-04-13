@@ -12,6 +12,9 @@ function Index() {
   const [isAnimating, setIsAnimating] = useState(false);
   const [allModels, setAllModels] = useState([]);
   const [judged, setJudged] = useState(false);
+  const [modelInfo, setModelInfo] = useState({});
+  const [showModal, setShowModal] = useState(false);
+  const [selectedModel, setSelectedModel] = useState(null);
 
   // Array of 50 different person emojis
   const personEmojis = [
@@ -29,13 +32,31 @@ function Index() {
     }
   }, [results]);
 
+  // Fetch model info when component mounts
+  useEffect(() => {
+    console.log("Fetching model info...");
+    fetch('http://127.0.0.1:5000/api/model-info')
+      .then(response => {
+        console.log("Model info response status:", response.status);
+        return response.json();
+      })
+      .then(data => {
+        console.log("Model info fetched successfully:", Object.keys(data).length, "models");
+        setModelInfo(data);
+      })
+      .catch(error => {
+        console.error("Error fetching model info:", error);
+      });
+  }, []);
+
   // Initialize all models on component mount
   useEffect(() => {
     const initialModels = Array.from({ length: 50 }, (_, index) => ({
       id: index,
       emoji: personEmojis[index % personEmojis.length],
       probability: 0,
-      vote: null
+      vote: null,
+      modelKey: `var_${index + 1}` // Map to the model info keys (var_1, var_2, etc.)
     }));
     setAllModels(initialModels);
   }, []);
@@ -50,7 +71,8 @@ function Index() {
       id: index,
       emoji: personEmojis[index % personEmojis.length],
       probability,
-      vote: probability >= 0.5 ? 'human' : 'ai'
+      vote: probability >= 0.5 ? 'human' : 'ai',
+      modelKey: `var_${index + 1}` // Map to the model info keys
     }));
     
     // Add models one by one with delay
@@ -90,6 +112,147 @@ function Index() {
     setResults([]);
   };
 
+  const openModalWithModel = (model) => {
+    console.log("Opening modal for model:", model.id, "modelKey:", model.modelKey);
+    console.log("Model info available:", modelInfo && Object.keys(modelInfo).length > 0);
+    if (model.modelKey && model.modelKey in modelInfo) {
+      console.log("Model info found for this model:", modelInfo[model.modelKey]);
+    } else {
+      console.warn("No model info found for modelKey:", model.modelKey);
+    }
+    setSelectedModel(model);
+    setShowModal(true);
+  };
+
+  const closeModal = () => {
+    setShowModal(false);
+    setSelectedModel(null);
+  };
+
+  // Modal component
+  const ModelInfoModal = ({ model, onClose, judged }) => {
+    if (!model) {
+      console.warn("No model provided to modal");
+      return null;
+    }
+    
+    console.log("Rendering modal for model:", model.id, "modelKey:", model.modelKey);
+    
+    const info = model.modelKey ? modelInfo[model.modelKey] : null; 
+    if (!info) {
+      console.warn("No model info found for modelKey:", model.modelKey);
+      // Simplified modal when no info is available
+      return (
+        <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex justify-center items-center p-4">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full">
+            <div className="p-6">
+              <div className="flex justify-between items-start">
+                <h2 className="text-2xl font-bold flex items-center">
+                  <span className="text-3xl mr-3">{model.emoji}</span>
+                  Model {model.id + 1}
+                </h2>
+                <button onClick={onClose} className="text-gray-500 hover:text-gray-800 cursor-pointer">
+                  <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+              <div className="mt-4">
+                <p>Model information not available.</p>
+                {judged && model.vote !== null && ( // Show vote/score only if judged and vote exists
+                   <div className="mt-4 border-t pt-4">
+                      <p className="font-medium">This citizen {model.vote === 'human' ? 'voted for Person 1' : 'voted for Person 2'}</p>
+                      <p className="text-sm text-gray-500">
+                        Probability score: {(Math.abs(model.probability - 0.5) * 200).toFixed(2)}%
+                      </p>
+                    </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    // Full modal when info is available
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-30 z-50 flex justify-center items-center p-4">
+        <div className="bg-white rounded-lg shadow-xl w-full max-w-5xl max-h-[90vh] overflow-y-auto">
+          <div className="p-6">
+            <div className="flex justify-between items-start">
+              <h2 className="text-2xl font-bold flex items-center">
+                <span className="text-3xl mr-3">{model.emoji}</span>
+                Model {model.id + 1} Details
+              </h2>
+              <button onClick={onClose} className="text-gray-500 hover:text-gray-800 cursor-pointer">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            
+            <div className="mt-4">
+              {/* Stats Grid */}
+              <div className="grid grid-cols-4 gap-4 mb-4">
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="text-sm text-gray-500">Data Sampled</p>
+                  <p className="text-lg font-medium">{info.sample_percentage.toFixed(1)}%</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="text-sm text-gray-500">Features Used</p>
+                  <p className="text-lg font-medium">{info.feature_percentage.toFixed(1)}%</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="text-sm text-gray-500">Validation Accuracy</p>
+                  <p className="text-lg font-medium">{(info.validation_accuracy * 100).toFixed(2)}%</p>
+                </div>
+                <div className="bg-gray-50 p-3 rounded-md">
+                  <p className="text-sm text-gray-500">Log Loss</p>
+                  <p className="text-lg font-medium">{info.validation_log_loss.toFixed(4)}</p>
+                </div>
+              </div>
+              
+              {/* Sampling and Hyperparameters */}
+              <div className="grid grid-cols-2 gap-6 mt-4">
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Sampling Strategy</h3>
+                  <div className="bg-gray-50 p-4 rounded-md mb-4">
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p><span className="font-medium">Bootstrap Sampling:</span> {info.bootstrap ? 'Yes' : 'No'}</p>
+                        <p><span className="font-medium">Feature Importance Based:</span> {info.feature_importance_based ? 'Yes' : 'No'}</p>
+                      </div>
+                      <div>
+                        <p><span className="font-medium">Feature Count:</span> {info.feature_count}</p>
+                        <p><span className="font-medium">Sample Count:</span> {info.sample_count}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {judged && model.vote !== null && ( // Show vote/score only if judged and vote exists
+                    <div className="mt-6 border-t pt-4">
+                      <p className="font-medium">This citizen {model.vote === 'human' ? 'voted for Person 1' : 'voted for Person 2'}</p>
+                      <p className="text-sm text-gray-500">
+                        Probability score: {(Math.abs(model.probability - 0.5) * 200).toFixed(2)}%
+                      </p>
+                    </div>
+                  )}
+                </div>
+                
+                <div>
+                  <h3 className="text-lg font-semibold mb-2">Hyperparameters</h3>
+                  <div className="bg-gray-50 p-3 rounded-md h-[calc(100%-40px)] overflow-hidden">
+                    <pre className="text-xs">{JSON.stringify(info.hyperparameters, null, 2)}</pre>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-0">
       <style jsx global>{`
@@ -97,6 +260,7 @@ function Index() {
           opacity: 0;
           transform: scale(0);
           animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+          position: relative;
         }
         
         @keyframes popIn {
@@ -131,6 +295,12 @@ function Index() {
           50% {
             opacity: 0.6;
           }
+        }
+        
+        .emoji-content {
+          cursor: pointer !important;
+          position: relative;
+          z-index: 1;
         }
       `}</style>
 
@@ -172,6 +342,7 @@ function Index() {
                     key={model.id} 
                     className="emoji-item relative group"
                     style={{ animationDelay: `${index * 100}ms` }}
+                    onClick={() => openModalWithModel(model)}
                   >
                     <div className="emoji-content">
                       <span className="text-xl bg-gray-100 p-1 rounded-md inline-block border border-gray-200 hover:bg-orange-50">
@@ -206,6 +377,7 @@ function Index() {
                     key={model.id} 
                     className="emoji-item relative group"
                     style={{ animationDelay: `${index * 100}ms` }}
+                    onClick={() => openModalWithModel(model)}
                   >
                     <div className="emoji-content">
                       <span className="text-xl bg-gray-100 p-1 rounded-md inline-block border border-gray-200 hover:bg-blue-50">
@@ -228,6 +400,7 @@ function Index() {
               <div 
                 key={model.id} 
                 className="emoji-item"
+                onClick={() => openModalWithModel(model)}
               >
                 <div className={`emoji-content ${isLoading ? "pulse-animation" : ""}`}>
                   <span className="text-xl bg-gray-100 p-1 rounded-md inline-block border border-gray-200 hover:bg-gray-50">
@@ -262,6 +435,15 @@ function Index() {
           </div>
         </div>
       </div>
+      
+      {/* Modal */}
+      {showModal && selectedModel && (
+        <ModelInfoModal 
+          model={selectedModel} 
+          onClose={closeModal} 
+          judged={judged}
+        />
+      )}
     </div>
   );
 }
