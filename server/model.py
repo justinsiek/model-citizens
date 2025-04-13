@@ -8,11 +8,18 @@ import seaborn as sns
 import xgboost as xgb
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import log_loss
+from sklearn.utils import resample
 
 # Configuration
 class config:
     seed = 42
     n_splits = 10
+    n_model_variations = 50  # Number of model variations to train
+    # Data sampling settings
+    min_sample_fraction = 0.5  # Minimum fraction of samples to use
+    max_sample_fraction = 1.0  # Maximum fraction of samples to use
+    min_feature_fraction = 0.5  # Minimum fraction of features to use
+    max_feature_fraction = 1.0  # Maximum fraction of features to use
 
 # Load data from cleandata if available, otherwise process it
 def load_data():
@@ -33,6 +40,102 @@ def process(input_str):
     stripped_str = input_str.strip('[]')
     sentences = [s.strip('"') for s in stripped_str.split('","')]
     return ' '.join(sentences)
+
+# Generate XGBoost model variations with different hyperparameters
+def generate_model_variations(n_variations=50, seed=42):
+    np.random.seed(seed)
+    model_variations = []
+    
+    for i in range(n_variations):
+        # Use different random seeds for each model
+        model_seed = seed + i
+        
+        # Create hyperparameter variations
+        params = {
+            'objective': 'binary:logistic',
+            'eval_metric': 'logloss',
+            'n_estimators': np.random.randint(500, 1500),
+            'learning_rate': np.random.uniform(0.01, 0.1),
+            'max_depth': np.random.randint(3, 9),
+            'subsample': np.random.uniform(0.6, 1.0),
+            'colsample_bytree': np.random.uniform(0.6, 1.0),
+            'min_child_weight': np.random.randint(1, 6),
+            'reg_lambda': np.random.uniform(0.1, 5.0),
+            'reg_alpha': np.random.uniform(0, 2.0),
+            'random_state': model_seed,
+            'early_stopping_rounds': 75
+        }
+        
+        # For some models, use more specialized parameters
+        if np.random.random() < 0.2:
+            # Add some specialized variations
+            params['gamma'] = np.random.uniform(0, 5)
+            params['grow_policy'] = np.random.choice(['depthwise', 'lossguide'])
+        
+        # Add data sampling parameters for this model
+        data_params = {
+            'sample_fraction': np.random.uniform(config.min_sample_fraction, config.max_sample_fraction),
+            'feature_fraction': np.random.uniform(config.min_feature_fraction, config.max_feature_fraction),
+            'bootstrap': np.random.choice([True, False]),
+            'feature_importance_based': np.random.choice([True, False]),
+        }
+        
+        model = xgb.XGBClassifier(**params)
+        model_variations.append((model, params, data_params))
+    
+    return model_variations
+
+# Sample data for a specific model variation
+def sample_data_for_model(X_train, y_train, data_params, random_state=42):
+    sample_size = int(len(X_train) * data_params['sample_fraction'])
+    
+    # Sample rows (data points)
+    if data_params['bootstrap']:
+        # Bootstrap sampling (with replacement)
+        indices = resample(
+            np.arange(len(X_train)), 
+            replace=True, 
+            n_samples=sample_size, 
+            random_state=random_state,
+            stratify=y_train  # Maintain class distribution
+        )
+    else:
+        # Sampling without replacement
+        indices = np.random.choice(
+            np.arange(len(X_train)), 
+            size=sample_size, 
+            replace=False, 
+            p=None  # Uniform probability
+        )
+    
+    X_sampled = X_train.iloc[indices].copy()
+    y_sampled = y_train.iloc[indices].copy()
+    
+    # Sample columns (features)
+    n_features = X_sampled.shape[1]
+    feature_size = int(n_features * data_params['feature_fraction'])
+    
+    if data_params['feature_importance_based'] and hasattr(X_train, 'model_feature_importance'):
+        # Sample features based on feature importance
+        feature_probs = X_train.model_feature_importance / X_train.model_feature_importance.sum()
+        feature_indices = np.random.choice(
+            np.arange(n_features), 
+            size=feature_size, 
+            replace=False, 
+            p=feature_probs
+        )
+    else:
+        # Random feature selection
+        feature_indices = np.random.choice(
+            np.arange(n_features), 
+            size=feature_size, 
+            replace=False
+        )
+    
+    selected_features = X_sampled.columns[feature_indices]
+    X_sampled = X_sampled[selected_features]
+    
+    return X_sampled, y_sampled, selected_features
 
 def main():
     # Load training data
@@ -153,65 +256,89 @@ def main():
         print("Warning: This model is designed for binary classification (model A wins vs model B wins)")
         print("The data should only contain wins (0) and losses (1), with no ties")
     
+    # Generate model variations
+    print(f"Generating {config.n_model_variations} XGBoost model variations...")
+    model_variations = generate_model_variations(config.n_model_variations, config.seed)
+    
+    # Directory to save models
+    os.makedirs("model_variations", exist_ok=True)
+    
+    # Dictionary to store feature sets used by each model
+    feature_sets = {}
+    
     # Train models with cross-validation
     for idx, (train_idx, val_idx) in enumerate(cv.split(X, y)):
         print(f"| Fold {idx+1} |".center(90, "="))
-        X_train, y_train = X.loc[train_idx], y.loc[train_idx]
+        X_train_full, y_train_full = X.loc[train_idx], y.loc[train_idx]
         X_val, y_val = X.loc[val_idx], y.loc[val_idx]
         
-        print(f'Train: {X_train.shape}')
+        print(f'Full Train: {X_train_full.shape}')
         print(f'Val: {X_val.shape}')
         
-        # Initialize model for binary classification
-        model = xgb.XGBClassifier(
-            objective='binary:logistic',  # Changed to binary classification
-            eval_metric='logloss',
-            subsample=0.8,
-            n_estimators=1000,  # Increased for better performance
-            learning_rate=0.03,  # Reduced for better generalization
-            max_depth=6,         # Slightly increased
-            colsample_bytree=0.8, # Added for better feature selection
-            min_child_weight=3,   # Added to prevent overfitting
-            reg_lambda=2.0,       # L2 regularization to prevent overfitting
-            random_state=config.seed,
-            early_stopping_rounds=75
-        )
+        # Train all model variations for this fold
+        fold_cv_scores = []
+        fold_accuracy_scores = []
         
-        # Train model
-        model.fit(
-            X_train,
-            y_train,
-            eval_set=[(X_train, y_train), (X_val, y_val)],
-            verbose=75
-        )
+        for model_idx, (model, params, data_params) in enumerate(model_variations):
+            model_key = f"fold_{idx+1}_var_{model_idx+1}"
+            print(f"Training model variation {model_idx+1}/{config.n_model_variations}...")
+            print(f"  Using {data_params['sample_fraction']*100:.1f}% of samples and {data_params['feature_fraction']*100:.1f}% of features")
+            
+            # Sample data for this model
+            X_train, y_train, selected_features = sample_data_for_model(
+                X_train_full, 
+                y_train_full, 
+                data_params, 
+                random_state=config.seed + model_idx
+            )
+            
+            print(f"  Sampled data shape: {X_train.shape}")
+            
+            # Store selected features for prediction later
+            feature_sets[model_key] = selected_features
+            
+            # Train model
+            model.fit(
+                X_train,
+                y_train,
+                eval_set=[(X_train, y_train), (X_val[selected_features], y_val)],
+                verbose=False  # Reduced verbosity due to many models
+            )
+            
+            # Evaluate model
+            val_preds = model.predict_proba(X_val[selected_features])
+            val_pred_labels = np.argmax(val_preds, axis=1)
+            val_accuracy = np.mean(val_pred_labels == y_val)
+            val_log_loss_score = log_loss(y_val, val_preds, labels=unique_classes)
+            
+            print(f"  Model {model_idx+1} Val log loss: {val_log_loss_score:.5f}, Val accuracy: {val_accuracy:.5f}")
+            
+            fold_cv_scores.append(val_log_loss_score)
+            fold_accuracy_scores.append(val_accuracy)
+            
+            # Save model
+            model_path = f"model_variations/xgb_model_{model_key}.json"
+            model.save_model(model_path)
+            
+            # Save feature set
+            with open(f"model_variations/features_{model_key}.txt", 'w') as f:
+                f.write('\n'.join(selected_features))
+            
+            # Clean up to free memory
+            gc.collect()
         
-        # Evaluate model
-        val_preds = model.predict_proba(X_val)
-        val_pred_labels = np.argmax(val_preds, axis=1)
-        val_accuracy = np.mean(val_pred_labels == y_val)
-        val_log_loss_score = log_loss(y_val, val_preds, labels=unique_classes)
+        # Average scores for this fold
+        avg_log_loss = np.mean(fold_cv_scores)
+        avg_accuracy = np.mean(fold_accuracy_scores)
+        print(f"Fold {idx+1} - Avg Log Loss: {avg_log_loss:.5f}, Avg Accuracy: {avg_accuracy:.5f}")
         
-        print(f"Val log loss: {val_log_loss_score:.5f}")
-        print(f"Val accuracy: {val_accuracy:.5f} ({np.sum(val_pred_labels == y_val)}/{len(y_val)})")
-        
-        cv_scores.append(val_log_loss_score)
-        accuracy_scores.append(val_accuracy)
-        
-        # Predict on test data
-        if test is not None:
-            test_preds += model.predict_proba(X_test) / cv.get_n_splits()
-        
-        # Save model
-        model.save_model(f"xgb_model_fold_{idx+1}.json")
-        
-        # Clean up to free memory
-        del model
-        gc.collect()
+        cv_scores.append(avg_log_loss)
+        accuracy_scores.append(avg_accuracy)
     
     # Print cross-validation result
     print("="*90)
-    print(f"CV Log Loss: {np.mean(cv_scores):.5f}")
-    print(f"CV Accuracy: {np.mean(accuracy_scores):.5f} (Average across all folds)")
+    print(f"Overall CV Log Loss: {np.mean(cv_scores):.5f}")
+    print(f"Overall CV Accuracy: {np.mean(accuracy_scores):.5f} (Average across all folds and model variations)")
     
     # Save predictions to submission file
     if test is not None and sample_submission is not None:
@@ -224,16 +351,9 @@ def main():
 
 def predict_preference(prompt, response_a, response_b):
     """
-    Make a prediction for a single example using the trained model.
-    Returns probability of preferring model A or model B (binary).
+    Make predictions for a single example using all trained model variations.
+    Returns probability arrays for each model.
     """
-    # Load the model from fold 1 (could average multiple folds)
-    model = xgb.XGBClassifier()
-    model.load_model("xgb_model_fold_1.json")
-    
-    # Process the data
-    from cleandata import Preprocessor
-    
     # Process inputs
     processed_prompt = process(prompt)
     processed_response_a = process(response_a)
@@ -248,6 +368,7 @@ def predict_preference(prompt, response_a, response_b):
     })
     
     # Extract features
+    from cleandata import Preprocessor
     preprocessor = Preprocessor()
     processed_data = preprocessor.run(test_data)
     
@@ -256,13 +377,49 @@ def predict_preference(prompt, response_a, response_b):
     X = processed_data.drop(columns=drop_cols, axis=1)
     X = X.replace([np.inf, -np.inf], np.nan).fillna(0)
     
-    # Make prediction - binary classification (model A vs model B)
-    probabilities = model.predict_proba(X)[0]
+    # Use first fold models by default
+    fold_num = 1
     
-    return {
-        "prefer_a_probability": 1 - probabilities[1],  # Probability of model A winning
-        "prefer_b_probability": probabilities[1]       # Probability of model B winning
-    }
+    # Load all model variations and make predictions
+    model_probs = []
+    
+    for model_idx in range(1, config.n_model_variations + 1):
+        model_key = f"fold_{fold_num}_var_{model_idx}"
+        model_path = f"model_variations/xgb_model_{model_key}.json"
+        feature_path = f"model_variations/features_{model_key}.txt"
+        
+        if os.path.exists(model_path) and os.path.exists(feature_path):
+            # Load model
+            model = xgb.XGBClassifier()
+            model.load_model(model_path)
+            
+            # Load feature set
+            with open(feature_path, 'r') as f:
+                features = [line.strip() for line in f.readlines()]
+            
+            # Make sure all required features exist in the input data
+            missing_features = [f for f in features if f not in X.columns]
+            available_features = [f for f in features if f in X.columns]
+            
+            if missing_features:
+                print(f"Warning: Model {model_key} is missing {len(missing_features)} features in the input data")
+                if not available_features:
+                    print(f"Skipping model {model_key} - no features available")
+                    continue
+            
+            # Predict probabilities using only the features this model was trained on
+            probs = model.predict_proba(X[available_features])[0]
+            
+            model_probs.append({
+                "model_variation": model_idx,
+                "fold": fold_num,
+                "features_used": len(available_features),
+                "features_missing": len(missing_features),
+                "prefer_a_probability": 1 - probs[1],  # Probability of model A winning
+                "prefer_b_probability": probs[1]       # Probability of model B winning
+            })
+    
+    return model_probs
 
 if __name__ == "__main__":
     main()

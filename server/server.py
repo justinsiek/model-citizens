@@ -13,10 +13,9 @@ def predict():
 
     result = user_response + ai_response + prompt
     thing = predict_preference(prompt, user_response, ai_response)
-    print(thing['prefer_a_probability'])
-    print(user_response)
+    print(thing)
 
-    return jsonify({'result': thing['prefer_a_probability']})
+    return jsonify({'result': 'result'})
 
 if __name__ == '__main__':
     app.run(debug=True)
