@@ -83,6 +83,12 @@ function Index() {
         setIsLoading(false);
       });
   };
+  
+  const resetJudging = () => {
+    setJudged(false);
+    setAnimatedModels([]);
+    setResults([]);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 text-gray-900 p-0">
@@ -215,28 +221,8 @@ function Index() {
           </div>
         </div>
         
-        {/* Predict Button */}
-        <div className="flex justify-center">
-          <button
-            onClick={predict}
-            disabled={isLoading}
-            className="bg-black hover:bg-gray-800 text-white font-medium py-2 px-8 rounded-full text-md shadow-sm transition-colors relative min-w-[100px]">
-            {isLoading ? (
-              <div className="flex justify-center items-center">
-                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Judging...
-              </div>
-            ) : (
-              "Judge!"
-            )}
-          </button>
-        </div>
-        
         {/* Bottom container for all emojis */}
-        <div className="mt-12 bg-white rounded-lg p-6 shadow-md border border-gray-200">
+        <div className="mt-8 bg-white rounded-lg p-6 shadow-md border border-gray-200">
           <div className="bg-gray-50 p-5 rounded-md min-h-24 flex flex-wrap gap-3 items-center justify-center">
             {!judged && allModels.map((model) => (
               <div 
@@ -253,6 +239,26 @@ function Index() {
             {judged && (
               <p className="text-gray-500 text-sm italic">The citizens have decided!</p>
             )}
+          </div>
+          
+          {/* Judge/Reset Button */}
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={judged ? resetJudging : predict}
+              disabled={isLoading}
+              className={`${judged ? 'bg-white border-2 border-black hover:bg-gray-100 text-black' : 'bg-black hover:bg-gray-800 text-white'}  font-medium py-2 px-8 rounded-full text-md shadow-sm transition-colors relative min-w-[100px]`}>
+              {isLoading ? (
+                <div className="flex justify-center items-center">
+                  <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Judging...
+                </div>
+              ) : (
+                judged ? "Reset Citizens" : "Judge!"
+              )}
+            </button>
           </div>
         </div>
       </div>
