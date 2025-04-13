@@ -6,6 +6,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import xgboost as xgb
+import json
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import log_loss
 from sklearn.utils import resample
@@ -136,6 +137,23 @@ def sample_data_for_model(X_train, y_train, data_params, random_state=42):
     X_sampled = X_sampled[selected_features]
     
     return X_sampled, y_sampled, selected_features
+
+# Helper function to convert NumPy types to Python native types for JSON serialization
+def convert_numpy_types(obj):
+    if isinstance(obj, (np.integer, np.int64, np.int32, np.int16, np.int8)):
+        return int(obj)
+    elif isinstance(obj, (np.floating, np.float64, np.float32, np.float16)):
+        return float(obj)
+    elif isinstance(obj, (np.ndarray,)):
+        return obj.tolist()
+    elif isinstance(obj, (np.bool_)):
+        return bool(obj)
+    elif isinstance(obj, dict):
+        return {k: convert_numpy_types(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [convert_numpy_types(i) for i in obj]
+    else:
+        return obj
 
 def main():
     # Load training data
@@ -270,6 +288,9 @@ def main():
     # Dictionary to store feature sets used by each model
     feature_sets = {}
     
+    # Dictionary to store model information for JSON export
+    model_info = {}
+    
     # Train all model variations
     model_cv_scores = []
     model_accuracy_scores = []
@@ -311,6 +332,19 @@ def main():
         model_cv_scores.append(val_log_loss_score)
         model_accuracy_scores.append(val_accuracy)
         
+        # Store model info for JSON
+        model_info[model_key] = {
+            "sample_percentage": data_params['sample_fraction'] * 100,
+            "feature_percentage": data_params['feature_fraction'] * 100,
+            "bootstrap": data_params['bootstrap'],
+            "feature_importance_based": data_params['feature_importance_based'],
+            "hyperparameters": params,
+            "validation_log_loss": val_log_loss_score,
+            "validation_accuracy": val_accuracy,
+            "feature_count": len(selected_features),
+            "sample_count": len(X_train)
+        }
+        
         # Save model
         model_path = f"model_variations/xgb_model_{model_key}.json"
         model.save_model(model_path)
@@ -334,6 +368,14 @@ def main():
     print("="*90)
     print(f"Overall Log Loss: {np.mean(model_cv_scores):.5f}")
     print(f"Overall Accuracy: {np.mean(model_accuracy_scores):.5f}")
+    
+    # Convert NumPy types to Python types for JSON serialization
+    model_info_serializable = convert_numpy_types(model_info)
+    
+    # Save model information to JSON file
+    with open("model_variations/model_info.json", 'w') as f:
+        json.dump(model_info_serializable, f, indent=4)
+    print("Model information saved to model_variations/model_info.json")
     
     # Save predictions to submission file
     if test is not None and sample_submission is not None:
