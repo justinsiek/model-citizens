@@ -31,4 +31,5 @@ def get_model_info():
         return jsonify({'error': 'Model information not found'}), 404
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # Set use_reloader=False to prevent the model from being loaded twice in debug mode
+    app.run(debug=True, use_reloader=False)
