@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 
 function Index() {
   const [prompt, setPrompt] = useState('Do you like pinapple on pizza?');
-  const [aiResponse, setAiResponse] = useState('');
+  const [aiResponse, setAiResponse] = useState('yes I love pizza with pinapple');
   const [userResponse, setUserResponse] = useState('');
   const [result, setResult] = useState('');
 

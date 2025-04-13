@@ -12,9 +12,11 @@ def predict():
     ai_response = request.args.get('ai_response', default='0', type=str)
 
     result = user_response + ai_response + prompt
-    print(predict_preference(prompt, user_response, ai_response))
+    thing = predict_preference(prompt, user_response, ai_response)
+    print(thing['prefer_a_probability'])
+    print(user_response)
 
-    return jsonify({'result': result})
+    return jsonify({'result': thing['prefer_a_probability']})
 
 if __name__ == '__main__':
     app.run(debug=True)
