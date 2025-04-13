@@ -6,19 +6,19 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import xgboost as xgb
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import train_test_split
 from sklearn.metrics import log_loss
 from sklearn.utils import resample
 
 # Configuration
 class config:
     seed = 42
-    n_splits = 10
+    validation_size = 0.2  # Size of validation set
     n_model_variations = 50  # Number of model variations to train
     # Data sampling settings
-    min_sample_fraction = 0.5  # Minimum fraction of samples to use
+    min_sample_fraction = 0.3  # Minimum fraction of samples to use
     max_sample_fraction = 1.0  # Maximum fraction of samples to use
-    min_feature_fraction = 0.5  # Minimum fraction of features to use
+    min_feature_fraction = 0.3  # Minimum fraction of features to use
     max_feature_fraction = 1.0  # Maximum fraction of features to use
 
 # Load data from cleandata if available, otherwise process it
@@ -237,14 +237,18 @@ def main():
         X_test = X_test.replace([-np.inf, np.inf], np.nan)
         X_test = X_test.fillna(0)  # Fill NaNs with 0
     
-    # Setup cross-validation
-    cv = StratifiedKFold(n_splits=config.n_splits, shuffle=True, random_state=config.seed)
+    # Single train/validation split instead of cross-validation
+    X_train_full, X_val, y_train_full, y_val = train_test_split(
+        X, y, test_size=config.validation_size, 
+        random_state=config.seed, stratify=y
+    )
+    
+    print(f'Train: {X_train_full.shape}')
+    print(f'Validation: {X_val.shape}')
     
     # Create containers for predictions and metrics
     if test is not None:
         test_preds = np.zeros(shape=(X_test.shape[0], y.nunique()))
-    cv_scores = list()
-    accuracy_scores = list()  # To track accuracy across folds
     
     # Get unique classes for proper model setup
     unique_classes = np.unique(y)
@@ -266,79 +270,70 @@ def main():
     # Dictionary to store feature sets used by each model
     feature_sets = {}
     
-    # Train models with cross-validation
-    for idx, (train_idx, val_idx) in enumerate(cv.split(X, y)):
-        print(f"| Fold {idx+1} |".center(90, "="))
-        X_train_full, y_train_full = X.loc[train_idx], y.loc[train_idx]
-        X_val, y_val = X.loc[val_idx], y.loc[val_idx]
-        
-        print(f'Full Train: {X_train_full.shape}')
-        print(f'Val: {X_val.shape}')
-        
-        # Train all model variations for this fold
-        fold_cv_scores = []
-        fold_accuracy_scores = []
-        
-        for model_idx, (model, params, data_params) in enumerate(model_variations):
-            model_key = f"fold_{idx+1}_var_{model_idx+1}"
-            print(f"Training model variation {model_idx+1}/{config.n_model_variations}...")
-            print(f"  Using {data_params['sample_fraction']*100:.1f}% of samples and {data_params['feature_fraction']*100:.1f}% of features")
-            
-            # Sample data for this model
-            X_train, y_train, selected_features = sample_data_for_model(
-                X_train_full, 
-                y_train_full, 
-                data_params, 
-                random_state=config.seed + model_idx
-            )
-            
-            print(f"  Sampled data shape: {X_train.shape}")
-            
-            # Store selected features for prediction later
-            feature_sets[model_key] = selected_features
-            
-            # Train model
-            model.fit(
-                X_train,
-                y_train,
-                eval_set=[(X_train, y_train), (X_val[selected_features], y_val)],
-                verbose=False  # Reduced verbosity due to many models
-            )
-            
-            # Evaluate model
-            val_preds = model.predict_proba(X_val[selected_features])
-            val_pred_labels = np.argmax(val_preds, axis=1)
-            val_accuracy = np.mean(val_pred_labels == y_val)
-            val_log_loss_score = log_loss(y_val, val_preds, labels=unique_classes)
-            
-            print(f"  Model {model_idx+1} Val log loss: {val_log_loss_score:.5f}, Val accuracy: {val_accuracy:.5f}")
-            
-            fold_cv_scores.append(val_log_loss_score)
-            fold_accuracy_scores.append(val_accuracy)
-            
-            # Save model
-            model_path = f"model_variations/xgb_model_{model_key}.json"
-            model.save_model(model_path)
-            
-            # Save feature set
-            with open(f"model_variations/features_{model_key}.txt", 'w') as f:
-                f.write('\n'.join(selected_features))
-            
-            # Clean up to free memory
-            gc.collect()
-        
-        # Average scores for this fold
-        avg_log_loss = np.mean(fold_cv_scores)
-        avg_accuracy = np.mean(fold_accuracy_scores)
-        print(f"Fold {idx+1} - Avg Log Loss: {avg_log_loss:.5f}, Avg Accuracy: {avg_accuracy:.5f}")
-        
-        cv_scores.append(avg_log_loss)
-        accuracy_scores.append(avg_accuracy)
+    # Train all model variations
+    model_cv_scores = []
+    model_accuracy_scores = []
     
-    # Print cross-validation result
+    for model_idx, (model, params, data_params) in enumerate(model_variations):
+        model_key = f"var_{model_idx+1}"
+        print(f"Training model variation {model_idx+1}/{config.n_model_variations}...")
+        print(f"  Using {data_params['sample_fraction']*100:.1f}% of samples and {data_params['feature_fraction']*100:.1f}% of features")
+        
+        # Sample data for this model
+        X_train, y_train, selected_features = sample_data_for_model(
+            X_train_full, 
+            y_train_full, 
+            data_params, 
+            random_state=config.seed + model_idx
+        )
+        
+        print(f"  Sampled data shape: {X_train.shape}")
+        
+        # Store selected features for prediction later
+        feature_sets[model_key] = selected_features
+        
+        # Train model
+        model.fit(
+            X_train,
+            y_train,
+            eval_set=[(X_train, y_train), (X_val[selected_features], y_val)],
+            verbose=False  # Reduced verbosity due to many models
+        )
+        
+        # Evaluate model
+        val_preds = model.predict_proba(X_val[selected_features])
+        val_pred_labels = np.argmax(val_preds, axis=1)
+        val_accuracy = np.mean(val_pred_labels == y_val)
+        val_log_loss_score = log_loss(y_val, val_preds, labels=unique_classes)
+        
+        print(f"  Model {model_idx+1} Val log loss: {val_log_loss_score:.5f}, Val accuracy: {val_accuracy:.5f}")
+        
+        model_cv_scores.append(val_log_loss_score)
+        model_accuracy_scores.append(val_accuracy)
+        
+        # Save model
+        model_path = f"model_variations/xgb_model_{model_key}.json"
+        model.save_model(model_path)
+        
+        # Save feature set
+        with open(f"model_variations/features_{model_key}.txt", 'w') as f:
+            f.write('\n'.join(selected_features))
+        
+        # Generate predictions for test data
+        if test is not None:
+            # Use only features that were used during training
+            test_features = [f for f in selected_features if f in X_test.columns]
+            test_preds_model = model.predict_proba(X_test[test_features])
+            # Add to ensemble with equal weight
+            test_preds += test_preds_model / config.n_model_variations
+        
+        # Clean up to free memory
+        gc.collect()
+    
+    # Print overall result
     print("="*90)
-    print(f"Overall CV Log Loss: {np.mean(cv_scores):.5f}")
-    print(f"Overall CV Accuracy: {np.mean(accuracy_scores):.5f} (Average across all folds and model variations)")
+    print(f"Overall Log Loss: {np.mean(model_cv_scores):.5f}")
+    print(f"Overall Accuracy: {np.mean(model_accuracy_scores):.5f}")
     
     # Save predictions to submission file
     if test is not None and sample_submission is not None:
@@ -377,14 +372,11 @@ def predict_preference(prompt, response_a, response_b):
     X = processed_data.drop(columns=drop_cols, axis=1)
     X = X.replace([np.inf, -np.inf], np.nan).fillna(0)
     
-    # Use first fold models by default
-    fold_num = 1
-    
     # Load all model variations and make predictions
     model_probs = []
     
     for model_idx in range(1, config.n_model_variations + 1):
-        model_key = f"fold_{fold_num}_var_{model_idx}"
+        model_key = f"var_{model_idx}"
         model_path = f"model_variations/xgb_model_{model_key}.json"
         feature_path = f"model_variations/features_{model_key}.txt"
         
@@ -412,7 +404,6 @@ def predict_preference(prompt, response_a, response_b):
             
             model_probs.append({
                 "model_variation": model_idx,
-                "fold": fold_num,
                 "features_used": len(available_features),
                 "features_missing": len(missing_features),
                 "prefer_a_probability": 1 - probs[1],  # Probability of model A winning
