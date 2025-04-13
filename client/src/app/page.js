@@ -3,8 +3,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 
 function Index() {
-  const [prompt, setPrompt] = useState('Do you like pinapple on pizza?');
-  const [aiResponse, setAiResponse] = useState('yes I love pizza with pinapple');
+  const [prompt, setPrompt] = useState('What is the meaning of life?');
+  const [aiResponse, setAiResponse] = useState('');
   const [userResponse, setUserResponse] = useState('');
   const [results, setResults] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -105,7 +105,7 @@ function Index() {
         {/* Header */}
         <div className="mb-10 border-b border-gray-200 pb-4">
           <div className="flex flex-col md:flex-row justify-between items-center">
-            <h1 className="text-3xl font-bold tracking-tight mb-4 md:mb-0">Model Citizens</h1>
+            <h1 className="text-3xl font-bold tracking-tight mb-4 md:mb-0">modelcitizens.</h1>
             <div className="bg-gray-100 px-4 py-2 rounded-md inline-block">
               <h3 className="text-sm font-medium text-gray-700">
                 {prompt}
@@ -126,7 +126,7 @@ function Index() {
               className="w-full bg-gray-50 text-gray-800 border border-gray-300 p-4 rounded-md mb-4 h-48 focus:border-gray-500 focus:ring-1 focus:ring-gray-500 focus:outline-none resize-none"
               value={userResponse}
               onChange={(e) => setUserResponse(e.target.value)}
-              placeholder="Enter your response..."
+              placeholder="Enter response..."
             />
             <div className="bg-gray-50 p-3 rounded-md min-h-16 flex flex-wrap gap-2 items-center">
               {animatedModels
@@ -148,10 +148,7 @@ function Index() {
                   </div>
                 ))}
               {results.length > 0 && animatedModels.filter(m => m.vote === 'human').length === 0 && (
-                <span className="text-gray-500 text-sm">No human-like responses detected</span>
-              )}
-              {results.length === 0 && (
-                <span className="text-gray-500 text-sm">Human-like responses will appear here</span>
+                <span className="text-gray-500 text-sm">No responses detected...</span>
               )}
             </div>
           </div>
@@ -188,10 +185,7 @@ function Index() {
                   </div>
                 ))}
               {results.length > 0 && animatedModels.filter(m => m.vote === 'ai').length === 0 && (
-                <span className="text-gray-500 text-sm">No AI-like responses detected</span>
-              )}
-              {results.length === 0 && (
-                <span className="text-gray-500 text-sm">AI-like responses will appear here</span>
+                <span className="text-gray-500 text-sm">No responses detected...</span>
               )}
             </div>
           </div>
@@ -209,10 +203,10 @@ function Index() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Loading
+                Judging...
               </div>
             ) : (
-              "Predict"
+              "Judge!"
             )}
           </button>
         </div>
