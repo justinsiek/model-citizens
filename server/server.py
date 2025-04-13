@@ -1,5 +1,6 @@
 from flask import Flask, jsonify, request
 from flask_cors import CORS
+from model import predict_preference
 
 app = Flask(__name__)
 CORS(app)
@@ -11,7 +12,7 @@ def predict():
     ai_response = request.args.get('ai_response', default='0', type=str)
 
     result = user_response + ai_response + prompt
-
+    print(predict_preference(prompt, user_response, ai_response))
 
     return jsonify({'result': result})
 
