@@ -5,16 +5,13 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-
 import xgboost as xgb
-from sklearn.feature_extraction.text import TfidfVectorizer, CountVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
 from sklearn.model_selection import StratifiedKFold
 from sklearn.metrics import log_loss
 
 # Configuration
 class config:
-    seed = 69
+    seed = 42
     n_splits = 10
 
 # Load data from cleandata if available, otherwise process it
@@ -175,6 +172,7 @@ def main():
             max_depth=6,         # Slightly increased
             colsample_bytree=0.8, # Added for better feature selection
             min_child_weight=3,   # Added to prevent overfitting
+            reg_lambda=2.0,       # L2 regularization to prevent overfitting
             random_state=config.seed,
             early_stopping_rounds=75
         )
