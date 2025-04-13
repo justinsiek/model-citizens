@@ -1,12 +1,15 @@
 'use client'
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 
 function Index() {
   const [prompt, setPrompt] = useState('Do you like pinapple on pizza?');
   const [aiResponse, setAiResponse] = useState('yes I love pizza with pinapple');
   const [userResponse, setUserResponse] = useState('');
   const [results, setResults] = useState([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [animatedModels, setAnimatedModels] = useState([]);
+  const [isAnimating, setIsAnimating] = useState(false);
 
   // Array of 50 different person emojis
   const personEmojis = [
@@ -17,18 +20,87 @@ function Index() {
     '🤵', '👰', '🤰', '🤱', '👼', '🎅', '🤶', '🧙', '🧚', '🧛'
   ];
 
+  // Animation handling when results change
+  useEffect(() => {
+    if (results.length > 0) {
+      startModelAnimation();
+    }
+  }, [results]);
+
+  const startModelAnimation = () => {
+    // Reset animation state
+    setAnimatedModels([]);
+    setIsAnimating(true);
+    
+    // Create models array from results
+    const modelsToAnimate = results.map((probability, index) => ({
+      id: index,
+      emoji: personEmojis[index % personEmojis.length],
+      probability,
+      vote: probability >= 0.5 ? 'human' : 'ai'
+    }));
+    
+    // Add models one by one with delay
+    modelsToAnimate.forEach((model, index) => {
+      setTimeout(() => {
+        setAnimatedModels(prev => [...prev, model]);
+        
+        // Check if this is the last model
+        if (index === modelsToAnimate.length - 1) {
+          setTimeout(() => setIsAnimating(false), 500);
+        }
+      }, index * 100); // Adjust delay as needed
+    });
+  };
+  
   const predict = () => {
+    setIsLoading(true);
+    setAnimatedModels([]);
     fetch(`http://127.0.0.1:5000/api/predict?user_response=${userResponse}&prompt=${prompt}&ai_response=${aiResponse}`)
       .then(response => {
         return response.json();
       })
       .then(data => {
         setResults(data.result);
+        setIsLoading(false);
+      })
+      .catch(error => {
+        console.error("Error during prediction:", error);
+        setIsLoading(false);
       });
   };
 
   return (
     <div className="min-h-screen bg-white text-gray-900 p-6">
+      <style jsx global>{`
+        .emoji-item {
+          opacity: 0;
+          transform: scale(0);
+          animation: popIn 0.4s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        
+        @keyframes popIn {
+          0% {
+            opacity: 0;
+            transform: scale(0);
+          }
+          70% {
+            opacity: 1;
+            transform: scale(1.1);
+          }
+          100% {
+            opacity: 1;
+            transform: scale(1);
+          }
+        }
+        
+        .emoji-content:hover {
+          transform: scale(1.1);
+          z-index: 10;
+          transition: transform 0.2s ease;
+        }
+      `}</style>
+
       <div className="w-full max-w-6xl mx-auto pt-6 pb-8">
         {/* Header */}
         <div className="mb-10 border-b border-gray-200 pb-4">
@@ -57,19 +129,28 @@ function Index() {
               placeholder="Enter your response..."
             />
             <div className="bg-gray-50 p-3 rounded-md min-h-16 flex flex-wrap gap-2 items-center">
-              {results.length > 0 ? (
-                results.map((probability, index) => (
-                  probability >= 0.5 ? 
-                    <div key={index} className="relative group">
-                      <span className="text-xl bg-gray-100 p-1 rounded-md inline-block border border-gray-200">
-                        {personEmojis[index % personEmojis.length]}
+              {animatedModels
+                .filter(model => model.vote === 'human')
+                .map((model, index) => (
+                  <div 
+                    key={model.id} 
+                    className="emoji-item relative group"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div className="emoji-content">
+                      <span className="text-xl bg-gray-100 p-1 rounded-md inline-block border border-gray-200 hover:bg-orange-50">
+                        {model.emoji}
                       </span>
                       <div className="absolute -top-10 left-0 bg-black text-white p-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity text-xs whitespace-nowrap">
-                        Score: {probability.toFixed(2)}
+                        Score: {model.probability.toFixed(2)}
                       </div>
-                    </div> : null
-                ))
-              ) : (
+                    </div>
+                  </div>
+                ))}
+              {results.length > 0 && animatedModels.filter(m => m.vote === 'human').length === 0 && (
+                <span className="text-gray-500 text-sm">No human-like responses detected</span>
+              )}
+              {results.length === 0 && (
                 <span className="text-gray-500 text-sm">Human-like responses will appear here</span>
               )}
             </div>
@@ -88,19 +169,28 @@ function Index() {
               placeholder="Enter response..."
             />
             <div className="bg-gray-50 p-3 rounded-md min-h-16 flex flex-wrap gap-2 items-center">
-              {results.length > 0 ? (
-                results.map((probability, index) => (
-                  probability < 0.5 ? 
-                    <div key={index} className="relative group">
-                      <span className="text-xl bg-gray-100 p-1 rounded-md inline-block border border-gray-200">
-                        {personEmojis[index % personEmojis.length]}
+              {animatedModels
+                .filter(model => model.vote === 'ai')
+                .map((model, index) => (
+                  <div 
+                    key={model.id} 
+                    className="emoji-item relative group"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div className="emoji-content">
+                      <span className="text-xl bg-gray-100 p-1 rounded-md inline-block border border-gray-200 hover:bg-blue-50">
+                        {model.emoji}
                       </span>
                       <div className="absolute -top-10 left-0 bg-black text-white p-1 rounded-sm opacity-0 group-hover:opacity-100 transition-opacity text-xs whitespace-nowrap">
-                        Score: {probability.toFixed(2)}
+                        Score: {model.probability.toFixed(2)}
                       </div>
-                    </div> : null
-                ))
-              ) : (
+                    </div>
+                  </div>
+                ))}
+              {results.length > 0 && animatedModels.filter(m => m.vote === 'ai').length === 0 && (
+                <span className="text-gray-500 text-sm">No AI-like responses detected</span>
+              )}
+              {results.length === 0 && (
                 <span className="text-gray-500 text-sm">AI-like responses will appear here</span>
               )}
             </div>
@@ -111,8 +201,19 @@ function Index() {
         <div className="flex justify-center">
           <button
             onClick={predict}
-            className="bg-black hover:bg-gray-800 text-white font-medium py-2 px-8 rounded-md text-sm shadow-sm transition-colors">
-            Predict
+            disabled={isLoading}
+            className="bg-black hover:bg-gray-800 text-white font-medium py-2 px-8 rounded-md text-sm shadow-sm transition-colors relative min-w-[100px]">
+            {isLoading ? (
+              <div className="flex justify-center items-center">
+                <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Loading
+              </div>
+            ) : (
+              "Predict"
+            )}
           </button>
         </div>
       </div>
